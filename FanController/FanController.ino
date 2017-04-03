@@ -1,6 +1,6 @@
 #include <EEPROM.h>
 
-#include <TimerOne.h>
+//#include <TimerOne.h>
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -27,7 +27,8 @@ bool isInAutotune = false;
 
 // Data wire is plugged into port 2 on the Arduino
 #define ONE_WIRE_BUS 15
-#define SSR_OUTPUT 10
+#define FAN_PWM 5
+#define TACHO_PIN 6
 #define MEASURE_LED 7
 
 #define PID_EEPROM_ADDRESS 0
@@ -40,6 +41,13 @@ DallasTemperature sensors(&oneWire);
 
 DeviceAddress tempDeviceAddress;
 
+void _analogWrite(int pin, int value)
+{
+  Serial.println(value);
+  analogWrite(pin, value);
+}
+
+//#define analogWrite _analogWrite
 //int  resolution = 12;
 #define resolution 12
 unsigned long lastTempRequest = 0;
@@ -55,11 +63,15 @@ char incomingMessage[50];
 String incomingString = "";
 char incomingMessageSize = 0;
 char bytesRead = 0;
+char tachoPin = 0;
 
 void setup(void)
 {
   pinMode(MEASURE_LED, OUTPUT);
-  delay(10000);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(FAN_PWM, OUTPUT);
+  pinMode(TACHO_PIN, OUTPUT);
+  delay(2000);
   Serial.begin(115200);
   Serial.setTimeout(1);
 
@@ -71,13 +83,13 @@ void setup(void)
   sensors.requestTemperatures();
   lastTempRequest = millis();
 
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(SSR_OUTPUT, OUTPUT);
-
-  Timer1.initialize(10000);
-  Timer1.attachInterrupt(PwmOutputInterrupt); // blinkLED to run every 0.15 seconds
+//  Timer1.initialize(10000);
+//  Timer1.attachInterrupt(PwmOutputInterrupt); // blinkLED to run every 0.15 seconds
     
   float p, i, d;
+  p = -1;
+  i = -1;
+  d = 0;
   EEPROM.get(PID_EEPROM_ADDRESS, p);
   EEPROM.get(PID_EEPROM_ADDRESS+4, i);
   EEPROM.get(PID_EEPROM_ADDRESS+8, d);
@@ -88,18 +100,20 @@ void setup(void)
   Serial.print("d: ");
   Serial.println(d);
   PID.SetTunings(p, i, d, 0);
-  PID.SetOutputLimits(10, 255);
-        PID.setSetPoint(40, 0);
-        PID.setAutoMode(true);
-        PID.setEnabled(true);
+  PID.SetOutputLimits(127, 255);
+  PID.setSetPoint(40, 0);
+  PID.setAutoMode(true);
+  PID.setEnabled(true);
+  analogWrite(FAN_PWM, 255);
+  delay(3000);
 }
 
 void PwmOutputInterrupt(void)
 {
 //  randomResult = random(100);
 //  digitalWrite(LED_BUILTIN, (output > randomResult));
-//  digitalWrite(SSR_OUTPUT, (output > randomResult));
-  analogWrite(SSR_OUTPUT, output<<2);
+//  digitalWrite(FAN_PWM, (output > randomResult));
+//  analogWrite(FAN_PWM, output<<2);
 }
 
 unsigned long t1, t2;
@@ -226,12 +240,14 @@ void loop() {
     }
     else
     {
-      //output = (unsigned char)PID.Compute(temperature);
-      output -= 10;
+      output = (unsigned char)PID.Compute(temperature);
     }
+    analogWrite(FAN_PWM, output);
     sprintf(outgoingMessage, "T%0d.%02d O%0d\n", (int)temperature, (int)(((int)(temperature*100))%100), output);
     Serial.print(outgoingMessage);
   }
-
+  digitalWrite(TACHO_PIN, tachoPin);
+  tachoPin = !tachoPin;
+  
   handleCommands();
 }

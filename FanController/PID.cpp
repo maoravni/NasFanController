@@ -90,6 +90,11 @@ float PIDDynamicSampleTime::Compute(float input)
     {
       m_ITerm += m_ki * ((m_error * sampleTimeModifier) / (1 + (10 * m_error * m_error) / m_kTrapezoidalRange));
 
+      if (m_ITerm > m_outMax)
+        m_ITerm = m_outMax;
+      else if (m_ITerm < m_outMin)
+        m_ITerm = m_outMin;
+
       modifiedFFiterm = m_ITerm + m_feedForwardInjection;
 
       if (modifiedFFiterm > m_outMax)
@@ -128,14 +133,14 @@ float PIDDynamicSampleTime::Compute(float input)
     m_output = m_kp * m_error + modifiedFFiterm - m_DTerm;
   }
 
+  // compute output smoothing:
+  m_output = m_outputSmoothingCoeff * m_output + (1 - m_outputSmoothingCoeff) * m_lastOutput;
+
   // truncate output value:
   if (m_output > m_outMax)
     m_output = m_outMax;
   else if (m_output < m_outMin)
     m_output = m_outMin;
-
-  // compute output smoothing:
-  m_output = m_outputSmoothingCoeff * m_output + (1 - m_outputSmoothingCoeff) * m_lastOutput;
 
   //    if (CLogger::getInstance().checkLevel(M_LOGGER_LEVEL_VERBOSE))
   //    {
