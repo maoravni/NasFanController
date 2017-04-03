@@ -27,7 +27,7 @@ bool isInAutotune = false;
 
 // Data wire is plugged into port 2 on the Arduino
 #define ONE_WIRE_BUS 15
-#define SSR_OUTPUT 9
+#define SSR_OUTPUT 10
 #define MEASURE_LED 7
 
 #define PID_EEPROM_ADDRESS 0
@@ -46,7 +46,7 @@ unsigned long lastTempRequest = 0;
 unsigned long actualTempDelay = 0;
 #define delayInMillis (750 / (1 << (12 - resolution)))
 float temperature = 0.0;
-char output = 0;
+unsigned char output = 255;
 char randomResult = 0;
 bool newTempReading = false;
 
@@ -58,7 +58,7 @@ char bytesRead = 0;
 
 void setup(void)
 {
-  pinMode(MEASURE_LED, O   UTPUT);
+  pinMode(MEASURE_LED, OUTPUT);
   delay(10000);
   Serial.begin(115200);
   Serial.setTimeout(1);
@@ -88,13 +88,18 @@ void setup(void)
   Serial.print("d: ");
   Serial.println(d);
   PID.SetTunings(p, i, d, 0);
+  PID.SetOutputLimits(10, 255);
+        PID.setSetPoint(40, 0);
+        PID.setAutoMode(true);
+        PID.setEnabled(true);
 }
 
 void PwmOutputInterrupt(void)
 {
-  randomResult = random(100);
-  digitalWrite(LED_BUILTIN, (output > randomResult));
-  digitalWrite(SSR_OUTPUT, (output > randomResult));
+//  randomResult = random(100);
+//  digitalWrite(LED_BUILTIN, (output > randomResult));
+//  digitalWrite(SSR_OUTPUT, (output > randomResult));
+  analogWrite(SSR_OUTPUT, output<<2);
 }
 
 unsigned long t1, t2;
@@ -202,7 +207,7 @@ void loop() {
   {
     if (isInAutotune)
     {
-      output = (char)PIDAutoTune.Compute(temperature);
+      output = (unsigned char)PIDAutoTune.Compute(temperature);
       if (!PIDAutoTune.isRunning())
       {
         isInAutotune = false;
@@ -221,7 +226,8 @@ void loop() {
     }
     else
     {
-      output = (char)PID.Compute(temperature);
+      //output = (unsigned char)PID.Compute(temperature);
+      output -= 10;
     }
     sprintf(outgoingMessage, "T%0d.%02d O%0d\n", (int)temperature, (int)(((int)(temperature*100))%100), output);
     Serial.print(outgoingMessage);
