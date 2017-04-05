@@ -100,7 +100,7 @@ void setup(void)
   Serial.print("d: ");
   Serial.println(d);
   PID.SetTunings(p, i, d, 0);
-  PID.SetOutputLimits(127, 255);
+  PID.SetOutputLimits(40, 255);
   PID.setSetPoint(40, 0);
   PID.setAutoMode(true);
   PID.setEnabled(true);
